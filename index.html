@@ -1,0 +1,226 @@
+<!--
+
+Course notes
+
+* d3.select() to select the first html element on the page found
+* d3.selectAll() to select all html elements of a given kind found on the page
+* d3.append() to add an html element after the ones selected
+* d3.text() to change the text of the html elements selected
+* d3.data() to attach the data to the elements selected
+* d3.enter() creates a new element for each data point
+* Common workflow pattern: d3.select("svg").data(dataset).enter().append("rect"): 
+* selection.text(d => d) to print the values tied to selected elements
+* selection.style() to style the selected elements, can include a callback function to dynamically change the style: selection.style("color", (d) => {logic to determine the color})
+* selection.attr("class", "className") to apply a CSS class to the selected HTML elements. The attr() method accepts callback functions
+* selection.attr("property", (d, i) => { logic }). The .attr() method accepts a call back function to set the attribute. The callback function takes the data point itself (d) and its index in the array (i) as arguments
+* <svg> tags in which the svg shapes should go 
+* <rect> is a type of shape that can go into an svg element
+* (x, y) coordinates: When placing a shape in an svg area, you can specify where it goes with x, y coordinates. (0, 0) is in the top left hand corner. x points to the right. And y points down.
+* selection.attr("fill", "navy") to change the color of <rect> to navy
+* d3.selectAll("text") let's you add text elements (similar to rect elements) to the svg canvas
+* svg element types: rect, circle, text, title
+* d3.append("title").text() to create a tooltip
+* d3.scaleLinear().domain() covers the set of input values. The domain is often set by finding the min / max in a dataset.
+* d3.scaleLinear().range() covers the set of output values
+*
+
+* Next step: a) Create legend as a g element, b) Append Rect to the legend, c) Append text to the legend
+* This might help -- https://stackoverflow.com/questions/20644415/d3-appending-text-to-a-svg-rectangle
+
+-->
+
+<!doctype html>
+<html lang="en">
+	<head>
+
+	<!-- Load Roboto font -->
+	<link href="https://fonts.googleapis.com/css?family=Roboto:400,900&display=swap" rel="stylesheet"> 
+
+	<!-- Load D3 library -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.2.2/d3.min.js"></script>
+
+	<style type="text/css">
+
+		body {
+			font-family: 'Roboto', sans-serif;
+			padding-top: 50px;
+			text-align:center;
+		}
+
+		#title {
+			font-weight: 900;
+			font-size: 30px;
+			padding: 100px;
+		}
+
+		#tooltip {
+			color: rgb(51, 51, 51);
+			background-color: rgb(241, 241, 241);
+			padding: 10px;
+			border-radius: 3px;
+		}
+
+		#x-axis line, #x-axis path, #y-axis line, #y-axis path {
+			stroke: rgb(156, 156, 156);
+		}
+
+		#x-axis text, #y-axis text {
+			fill: rgb(156, 156, 156);
+		} 
+
+		#x-axis, #y-axis {
+			font-size: 1em;
+			font-family: 'Roboto'
+		}
+
+	</style>
+
+	</head>
+	<body>
+
+		<!-- Load FCC test suite -->
+		<script src="https://cdn.freecodecamp.org/testable-projects-fcc/v1/bundle.js"></script>
+
+		<script>
+
+		d3.json('https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/cyclist-data.json', function(error, data){ 	
+
+			// Create dataset
+			const dataset = data.map(x => [new Date(x.Year + '-01-01'), new Date('2000-01-01T00:' + x.Time), x.Name, x.Nationality, x.Doping])
+
+			// Define the size for the svg canvas
+			const w = 1000;
+			const h = 700;
+			const padding = 80;
+
+
+			// Create chart scales
+			var yMin = new Date(d3.max(dataset, (d) => d[1]));
+			yMin.setSeconds(yMin.getSeconds() + 15);
+
+			var yMax = new Date(d3.min(dataset, (d) => d[1]));
+			yMax.setSeconds(yMax.getSeconds() - 15);
+
+			const yScale = d3.scaleTime()
+							.domain([yMin, yMax])
+							.range([h - padding, padding]);
+
+
+			var xMin = new Date(d3.min(dataset, (d) => d[0]));
+			xMin.setFullYear(xMin.getFullYear() - 1);
+
+			var xMax = new Date(d3.max(dataset, (d) => d[0]));
+			xMax.setFullYear(xMax.getFullYear() + 1);
+
+			const xScale = d3.scaleTime()
+							.domain([xMin, xMax])
+							.range([padding, w - padding]);
+
+
+			// Define the axes
+			const xAxis = d3.axisBottom(xScale);
+			const yAxis = d3.axisLeft(yScale)
+							.tickFormat(d3.timeFormat("%M:%S"));
+
+
+			// Create tooltip
+			var tooltip = d3.select("body")
+							.append("div")
+							.attr("id","tooltip")
+							.style("position", "absolute")
+							.style("z-index", "10")
+
+
+
+			// Create the svg canvas
+			const svg = d3.select("body")
+						.append("svg")
+						.attr("width", w)
+						.attr("height", h);
+
+			svg.selectAll("circle")
+			.data(dataset)
+			.enter()
+			.append("circle")
+			.attr('data-xvalue', function(d, i) {
+				return new Date(data[i].Year + '-01-01')
+			})
+			.attr('data-yvalue', function(d, i) {
+				return new Date('2000-01-01T00:' + data[i].Time)
+			})
+			.attr("cx", (d, i) => xScale(d[0]))
+			.attr("cy", (d, i) => yScale(d[1]))
+			.attr("r", 8)
+			.attr("class", "dot")
+			.style("fill", (d, i) => {
+				if (d[4] == "") {
+					return "rgb(81, 178, 229, 0.7)"
+				} else {
+					return "rgb(171, 87, 135, 0.7)"
+				};
+			})
+			.on("mousemove", function(d, i){
+				tooltip
+				.style("left", d3.event.pageX + 10 + "px")
+				.style("top", d3.event.pageY - 100 + "px")
+				.style("display", "inline-block")
+				.style("text-align", "left")
+				.attr('data-year', function(d, i) {
+					return new Date(data[i].Year + '-01-01')
+				})
+				.html(
+					'<strong>' + d[2] + ' (' + d[3] + ')</strong><br><br>'
+					+ 'Year: ' + d[0].getFullYear() + ' / Time: ' + d[1].getMinutes() + ':' + d[1].getSeconds()
+					+ '<br>'
+					+ d[4]
+					)
+			})
+			.on("mouseout", function(d){ tooltip.style("display", "none");});
+
+
+			// Append the axes
+			svg.append("g")
+			.attr("transform", "translate(0, " + (h - padding) + ")")
+			.call(xAxis)
+			.attr("id", "x-axis");
+
+			svg.append("g")
+			.attr("transform", "translate(" + padding + ", 0)")
+			.call(yAxis)
+			.attr("id", "y-axis");
+
+
+			// Add a title to the chart
+			svg.append("text")
+			.attr("x", w/2)
+			.attr("y", padding/2)
+			.attr("text-anchor", "middle")
+			.attr("fill", "rgb(51, 51, 51)")
+			.attr("id", "title")
+			.text("Doping in cycling: 35 fastest times up Alpes d'Huez");
+
+
+			// Text label for the y axis
+			svg.append("text")
+			.attr("transform", "rotate(-90)")
+			.attr("x", -h/2)
+			.attr("y", padding * 1/4)
+			.attr("fill", "rgb(156, 156, 156)")
+			.attr("text-anchor", "middle")
+			.text("Time in minutes");
+
+
+			// Create legend manually
+			legend = svg.append("g")
+			.attr("id", "legend")
+
+			legend.append("circle").attr("cx",700).attr("cy",130).attr("r", 8).style("fill", "rgb(81, 178, 229, 0.7)");
+			legend.append("text").attr("x",720).attr("y",135).text("No doping allegation").style("fill","rgb(156, 156, 156)");
+			legend.append("circle").attr("cx",700).attr("cy",155).attr("r", 8).style("fill", "rgb(171, 87, 135, 0.7)");
+			legend.append("text").attr("x",720).attr("y",160).text("Doping allegation").style("fill","rgb(156, 156, 156)");
+
+		});
+
+		</script>
+	</body>
+</html>
